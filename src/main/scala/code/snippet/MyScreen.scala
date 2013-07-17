@@ -52,6 +52,8 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
   import net.liftweb.http.SHtml._
   implicit val countryPromot: PairStringPromoter[Country] =
     new PairStringPromoter[Country] { def apply(in: Country): String = in.name.is }
+  implicit val cityPromot: PairStringPromoter[City] =
+    new PairStringPromoter[City] { def apply(in: City): String = in.name.is }
 
   val country = select[Country](S.?("register.country"),
     countries.head,
@@ -59,11 +61,18 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
     FieldBinding("country", Self),
     FieldTransform(_ => bindLocalAction("select [onchange]", updateCityInfo _)))
 
+
   def updateCityInfo: JsCmd = {
     logger.info("Selecting Country:%s".format(country.get.name))
-    //how to bind to register_city_field?
-    JsCmds.Noop
+    city.setOtherValue(country.get.cities.all)
+    replayForm
   }
+  
+  val city = select[City](S.?("register.city"),
+      country.get.cities.head,
+      country.get.cities,
+      FieldBinding("city",Self)
+      )
 
   val gender = new Field {
     
@@ -110,6 +119,10 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
     override def binding: Box[FieldBinding] = Full(FieldBinding(name, Self))
   }
 
+  
+  val agree = field("Agree", false,FieldBinding("agree", Self))
+  
+  
   def formName = "register"
 
   def finish() {
