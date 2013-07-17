@@ -15,7 +15,7 @@ import FieldBinding._
 import net.liftweb.http.js.JsCmds.SetHtml
 
 object LabelStyle {
-  
+
   def htmlize[T](item: ChoiceItem[T]): NodeSeq =
     <label class="radio">{ item.xhtml } { item.key.toString }</label>
 
@@ -40,6 +40,7 @@ trait MyCssBoundLiftScreen extends CssBoundLiftScreen {
         <div class="error"></div>
       </div>
     </div>
+
 }
 
 class MyScreen extends MyCssBoundLiftScreen with Loggable {
@@ -50,7 +51,7 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
   override protected def hasUploadField = true
 
   val countries = Country.findAll(OrderBy(Country.sort, Ascending))
-  
+
   import net.liftweb.http.SHtml._
   implicit val countryPromot: PairStringPromoter[Country] =
     new PairStringPromoter[Country] { def apply(in: Country): String = in.name.is }
@@ -61,8 +62,7 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
     countries.head,
     countries,
     FieldBinding("country", Self),
-    FieldTransform(_ => bindLocalAction("select [onchange]", replaceCityInfo _)))
-
+    FieldTransform(_ => bindLocalAction("select [onchange]", updateCityInfo _)))
 
   def updateCityInfo: JsCmd = {
     logger.info("Selecting Country:%s".format(country.get.name))
@@ -73,39 +73,28 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
   def replaceCityInfo: JsCmd = {
     logger.info("Selecting Country:%s".format(country.get.name))
     city.setOtherValue(country.get.cities.all)
-    city.toForm.map(n => SetHtml("register_city_field",n)).openOr(Noop)
-    //how to do the css binding here?
+    city.toForm.map(n => {
+      val fn = n \ "@name"
+      SetHtml("register_city_field",
+        <div id="register_city_field">
+          <span class="label" for="{fn}">{ city.name }</span>
+          { n }
+        </div>)
+    }).openOr(Noop)
   }
-  
+
   val city = select[City](S.?("register.city"),
-      country.get.cities.head,
-      country.get.cities,
-      FieldBinding("city",Self)
-      )
+    country.get.cities.head,
+    country.get.cities,
+    FieldBinding("city", Self))
 
-  val gender = new Field {
-    
-    type ValueType = Box[Gender.Value]
-    def manifest = scala.Predef.manifest[Box[Gender.Value]]
 
-    def name = "gender"
-
-    def default = Empty
-
-    import Gender._
-    val options: Seq[Gender] = Gender.values.toSeq
-    val radio: ChoiceHolder[Gender] = SHtml.radioElem(options, default) {
-      selected =>
-        {
-          logger.info("Choice: " + selected)
-          set(selected)
-        }
-    }
-
-    override def toForm = Full(LabelStyle.toForm(radio))
-
-    override def binding: Box[FieldBinding] = Full(FieldBinding(name, Self))
-  }
+  val gender = makeField[Box[Gender.Value], Seq[Gender.Value]](
+    S.?("enroll.gender"),
+    Empty,
+    f => Box !! SHtml.radioElem[Gender.Value](f.otherValue, f.is)(f.set(_)).toForm,
+    OtherValueInitializerImpl[Seq[Gender.Value]](() => Gender.values.toSeq),
+    FieldBinding("gender", Self))
 
   val photo = new Field {
 
@@ -128,10 +117,8 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
     override def binding: Box[FieldBinding] = Full(FieldBinding(name, Self))
   }
 
-  
-  val agree = field("Agree", false,FieldBinding("agree", Self))
-  
-  
+  val agree = field("Agree", false, FieldBinding("agree", Self))
+
   def formName = "register"
 
   def finish() {
