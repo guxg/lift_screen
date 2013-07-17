@@ -8,9 +8,11 @@ import common._
 import Helpers._
 import http._
 import js._
+import JsCmds._
 import SHtml._
 import scala.xml._
 import FieldBinding._
+import net.liftweb.http.js.JsCmds.SetHtml
 
 object LabelStyle {
   
@@ -48,7 +50,7 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
   override protected def hasUploadField = true
 
   val countries = Country.findAll(OrderBy(Country.sort, Ascending))
-
+  
   import net.liftweb.http.SHtml._
   implicit val countryPromot: PairStringPromoter[Country] =
     new PairStringPromoter[Country] { def apply(in: Country): String = in.name.is }
@@ -59,13 +61,20 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
     countries.head,
     countries,
     FieldBinding("country", Self),
-    FieldTransform(_ => bindLocalAction("select [onchange]", updateCityInfo _)))
+    FieldTransform(_ => bindLocalAction("select [onchange]", replaceCityInfo _)))
 
 
   def updateCityInfo: JsCmd = {
     logger.info("Selecting Country:%s".format(country.get.name))
     city.setOtherValue(country.get.cities.all)
     replayForm
+  }
+
+  def replaceCityInfo: JsCmd = {
+    logger.info("Selecting Country:%s".format(country.get.name))
+    city.setOtherValue(country.get.cities.all)
+    city.toForm.map(n => SetHtml("register_city_field",n)).openOr(Noop)
+    //how to do the css binding here?
   }
   
   val city = select[City](S.?("register.city"),
@@ -128,6 +137,8 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
   def finish() {
 
     logger.info("register is finished.")
+    logger.info("Country:%s".format(country.get))
+    logger.info("City:%s".format(city.get))
 
     //logger.info("uploaed file is %".format())
     photo.get.map(f => { logger.info("uploaed file is %s[%s] saved at %s".format(f.fileName, f.length, f.localFile.getAbsolutePath())) })
