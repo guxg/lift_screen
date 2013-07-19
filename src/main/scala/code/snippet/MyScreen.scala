@@ -13,6 +13,7 @@ import SHtml._
 import scala.xml._
 import FieldBinding._
 import net.liftweb.http.js.JsCmds.SetHtml
+import java.util.regex.Pattern
 
 object LabelStyle {
 
@@ -62,7 +63,7 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
     countries.head,
     countries,
     FieldBinding("country", Self),
-    FieldTransform(_ => bindLocalAction("select [onchange]", updateCityInfo _)))
+    FieldTransform(_ => bindLocalAction("select [onchange]", replaceCityInfo _)))
 
   def updateCityInfo: JsCmd = {
     logger.info("Selecting Country:%s".format(country.get.name))
@@ -73,6 +74,16 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
   def replaceCityInfo: JsCmd = {
     logger.info("Selecting Country:%s".format(country.get.name))
     city.setOtherValue(country.get.cities.all)
+
+    val snapshot = createSnapshot
+
+    val restoreAction = S.formGroup(-1)(SHtml.hidden(() =>
+      snapshot.restore()) % new UnprefixedAttribute("data-lift-screen-control", Text("restoreAction"), Null)) \ "@name"
+
+    val jsR = Run("""
+              $('input[data-lift-screen-control="restoreAction"]').attr('name',"%s");
+              """.format(restoreAction))
+
     city.toForm.map(n => {
       val fn = n \ "@name"
       SetHtml("register_city_field",
@@ -80,7 +91,8 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
           <span class="label" for="{fn}">{ city.name }</span>
           { n }
         </div>)
-    }).openOr(Noop)
+    }).openOr(Noop) & jsR
+
   }
 
   val city = select[City](S.?("register.city"),
@@ -88,13 +100,16 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
     country.get.cities,
     FieldBinding("city", Self))
 
-
   val gender = makeField[Box[Gender.Value], Seq[Gender.Value]](
     S.?("enroll.gender"),
     Empty,
     f => Box !! SHtml.radioElem[Gender.Value](f.otherValue, f.is)(f.set(_)).toForm,
     OtherValueInitializerImpl[Seq[Gender.Value]](() => Gender.values.toSeq),
     FieldBinding("gender", Self))
+    
+  val number = Pattern.compile("\\d+{11,14}")
+  val tel = field(S.?("register.tel"), "", trim, valRegex(number, S.?("register.tel.number.invalid")), FieldBinding("tel", Self), Help(Text(S.?("register.tel.help"))))
+    
 
   val photo = new Field {
 
@@ -117,9 +132,20 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
     override def binding: Box[FieldBinding] = Full(FieldBinding(name, Self))
   }
 
-  val agree = field("Agree", false, FieldBinding("agree", Self))
+  val agree = field("Agree", false, FieldBinding("agree", Self), FormParam("class" -> "red"))
 
   def formName = "register"
+
+  override def validate = {
+    val errors = super.validate
+    for (error <- errors) {
+      error.field.uniqueFieldId match {
+        case Full(fieldName) => S.appendJs(JsCmds.Run("$('[for=\"" + fieldName + "\"]').parent().addClass('error')"))
+        case _ =>
+      }
+    }
+    errors
+  }
 
   def finish() {
 
