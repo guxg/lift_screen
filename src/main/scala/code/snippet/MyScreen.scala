@@ -82,7 +82,7 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
       snapshot.restore()) % new UnprefixedAttribute("data-lift-screen-control", Text("restoreAction"), Null)) \ "@name"
       
     val jsR = Run("""
-              $('%s input[data-lift-screen-control="restoreAction"]').attr('name',"%s");
+              $('#%s input[data-lift-screen-control="restoreAction"]').attr('name',"%s");
               """.format(NextId.get,restoreAction))
 
     city.toForm.map(n => {
