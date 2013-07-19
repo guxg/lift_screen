@@ -8,6 +8,7 @@ import common._
 import Helpers._
 import http._
 import js._
+import JsCmd._
 import JsCmds._
 import SHtml._
 import scala.xml._
@@ -79,10 +80,10 @@ class MyScreen extends MyCssBoundLiftScreen with Loggable {
 
     val restoreAction = S.formGroup(-1)(SHtml.hidden(() =>
       snapshot.restore()) % new UnprefixedAttribute("data-lift-screen-control", Text("restoreAction"), Null)) \ "@name"
-
+      
     val jsR = Run("""
-              $('input[data-lift-screen-control="restoreAction"]').attr('name',"%s");
-              """.format(restoreAction))
+              $('%s input[data-lift-screen-control="restoreAction"]').attr('name',"%s");
+              """.format(NextId.get,restoreAction))
 
     city.toForm.map(n => {
       val fn = n \ "@name"
